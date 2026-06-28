@@ -18,7 +18,21 @@
         .card { border: 1px solid #eee; padding: 15px; margin-bottom: 12px; border-radius: 12px; display: flex; align-items: center; gap: 15px; }
         .card-info { flex-grow: 1; }
         .card strong { color: var(--roxo); display: block; font-size: 1.1em; }
-        button { background: var(--roxo); color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+       
+        /* Efeito de feedback no botão */
+        button {
+            background: var(--roxo);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+        button:active {
+            transform: scale(0.9);
+            opacity: 0.8;
+        }
        
         #carrinho { margin-top: 30px; border-top: 2px dashed var(--roxo); padding-top: 20px; }
         #lista-itens { margin-bottom: 20px; }
@@ -89,24 +103,19 @@
                 </div>
             `;
         });
-        atualizarRegras(); // Define as opções iniciais
+        atualizarRegras();
     }
 
-    // Função que controla a lógica de regras do negócio
     function atualizarRegras() {
         const envio = document.getElementById('tipo-entrega').value;
         const selectPag = document.getElementById('pagamento');
        
-        // 1. Endereço
         document.getElementById('campo-endereco').style.display = (envio !== "0.00") ? 'block' : 'none';
        
-        // 2. Opções de Pagamento Dinâmicas
-        selectPag.innerHTML = ""; // Limpa opções
+        selectPag.innerHTML = "";
         if (envio !== "0.00") {
-            // Regra Entrega: Só Pix
             selectPag.innerHTML = `<option value="Pix">Pix 🔑</option>`;
         } else {
-            // Regra Retirada: Tudo
             selectPag.innerHTML = `
                 <option value="Pix">Pix 🔑</option>
                 <option value="Cartão">Cartão 💳</option>
@@ -114,8 +123,8 @@
             `;
         }
        
-        toggleTroco(); // Verifica se precisa mostrar campo troco
-        renderizarCarrinho(); // Atualiza totais
+        toggleTroco();
+        renderizarCarrinho();
     }
 
     function toggleTroco() {
