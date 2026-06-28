@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Açaí Guará 🫐🥤</title>
+    <style>
+        :root { --roxo: #4B0082; --laranja: #FFA500; --branco: #ffffff; --cinza: #f8f9fa; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--cinza); margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: auto; background: var(--branco); padding: 25px; border-radius: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        header { text-align: center; color: var(--roxo); margin-bottom: 25px; }
+       
+        #visual-cup { width: 140px; height: 250px; border: 4px solid var(--roxo); border-top: none; margin: 0 auto 25px auto; position: relative; background: #eee; border-radius: 0 0 20px 20px; overflow: hidden; display: flex; flex-direction: column-reverse; }
+        .cup-layer { width: 100%; height: 30px; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.3); padding: 0 5px; box-sizing: border-box; text-align: center; }
+        .layer-acai { background: var(--roxo); }
+        .layer-adicional { background: var(--laranja); }
+       
+        .card { border: 1px solid #eee; padding: 15px; margin-bottom: 12px; border-radius: 12px; display: flex; align-items: center; gap: 15px; }
+        .card-info { flex-grow: 1; }
+        .card strong { color: var(--roxo); display: block; font-size: 1.1em; }
+        button { background: var(--roxo); color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+       
+        #carrinho { margin-top: 30px; border-top: 2px dashed var(--roxo); padding-top: 20px; }
+        #lista-itens { margin-bottom: 20px; }
+        .item-carrinho { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .btn-remove { background: #ff4d4d; color: white; border: none; border-radius: 5px; cursor: pointer; padding: 5px 10px; }
+       
+        select, input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        #campo-endereco, #campo-troco { display: none; }
+        h2 { color: var(--roxo); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header><h1>Açaí Guará 🫐🥤</h1></header>
+    <div id="visual-cup"></div>
+    <div id="menu"></div>
+
+    <div id="carrinho">
+        <h2>🛒 Seu Pedido</h2>
+        <div id="lista-itens"></div>
+        <p><strong>🏷️ Subtotal:</strong> R$ <span id="subtotal">0.00</span></p>
+       
+        <label>🛵 Forma de Envio:</label>
+        <select id="tipo-entrega" onchange="atualizarRegras()">
+            <option value="0.00">Retirada 🏠 (R$ 0,00)</option>
+            <option value="6.00">Entrega 🛵 (R$ 6,00)</option>
+        </select>
+       
+        <div id="campo-endereco">
+            <input type="text" id="endereco" placeholder="📍 Endereço de entrega">
+        </div>
+       
+        <label>📋 Forma de Pagamento:</label>
+        <select id="pagamento" onchange="toggleTroco()">
+            <!-- As opções serão geradas automaticamente aqui -->
+        </select>
+       
+        <div id="campo-troco">
+            <input type="text" id="troco" placeholder="💵 Precisa de troco para quanto?">
+        </div>
+       
+        <h3>🖨️ Total Final: R$ <span id="total">0.00</span></h3>
+        <button onclick="enviarWhatsApp()" style="width: 100%; font-size: 18px; padding: 15px; background: #2E8B57;">Enviar Pedido via WhatsApp 📲</button>
+    </div>
+</div>
+
+<script>
+    const URL_PRODUTOS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQjVm_aawzAFarrK_1R0qq5sG5CYxe3f6eJnZkQCrN-jubRioSZXbEkWGAaJcD3n1sxq6WJJm1heWb-/pub?gid=0&single=true&output=csv";
+    let carrinho = [];
+
+    async function init() {
+        const resp = await fetch(URL_PRODUTOS);
+        const data = await resp.text();
+        const linhas = data.split('\n').slice(1);
+        const menu = document.getElementById('menu');
+       
+        linhas.forEach(linha => {
+            const [id, nome, cat, preco, desc, img] = linha.split(',');
+            if(!nome) return;
+            menu.innerHTML += `
+                <div class="card">
+                    <img src="${img}" style="width: 60px; height: 60px; border-radius: 10px; object-fit: cover;">
+                    <div class="card-info">
+                        <strong>${nome}</strong><small>${desc}</small><br>R$ ${preco}
+                    </div>
+                    <button onclick="adicionar('${nome}', ${parseFloat(preco)}, '${cat.trim()}')">Add + 🛒</button>
+                </div>
+            `;
+        });
+        atualizarRegras(); // Define as opções iniciais
+    }
+
+    // Função que controla a lógica de regras do negócio
+    function atualizarRegras() {
+        const envio = document.getElementById('tipo-entrega').value;
+        const selectPag = document.getElementById('pagamento');
+       
+        // 1. Endereço
+        document.getElementById('campo-endereco').style.display = (envio !== "0.00") ? 'block' : 'none';
+       
+        // 2. Opções de Pagamento Dinâmicas
+        selectPag.innerHTML = ""; // Limpa opções
+        if (envio !== "0.00") {
+            // Regra Entrega: Só Pix
+            selectPag.innerHTML = `<option value="Pix">Pix 🔑</option>`;
+        } else {
+            // Regra Retirada: Tudo
+            selectPag.innerHTML = `
+                <option value="Pix">Pix 🔑</option>
+                <option value="Cartão">Cartão 💳</option>
+                <option value="Dinheiro">Dinheiro 💰</option>
+            `;
+        }
+       
+        toggleTroco(); // Verifica se precisa mostrar campo troco
+        renderizarCarrinho(); // Atualiza totais
+    }
+
+    function toggleTroco() {
+        const forma = document.getElementById('pagamento').value;
+        document.getElementById('campo-troco').style.display = (forma === "Dinheiro") ? 'block' : 'none';
+    }
+
+    function adicionar(nome, preco, categoria) {
+        carrinho.push({nome, preco, categoria});
+        renderizarCarrinho();
+    }
+
+    function remover(index) {
+        carrinho.splice(index, 1);
+        renderizarCarrinho();
+    }
+
+    function renderizarCarrinho() {
+        const lista = document.getElementById('lista-itens');
+        const cup = document.getElementById('visual-cup');
+        lista.innerHTML = "";
+        cup.innerHTML = "";
+       
+        let subtotal = 0;
+       
+        carrinho.forEach((item, index) => {
+            subtotal += item.preco;
+            lista.innerHTML += `
+                <div class="item-carrinho">
+                    <span>${item.nome} - R$ ${item.preco.toFixed(2)}</span>
+                    <button class="btn-remove" onclick="remover(${index})">🗑️</button>
+                </div>
+            `;
+            const classeCor = (item.categoria === 'Base') ? 'layer-acai' : 'layer-adicional';
+            cup.innerHTML += `<div class="cup-layer ${classeCor}">${item.nome}</div>`;
+        });
+
+        const taxa = parseFloat(document.getElementById('tipo-entrega').value);
+        document.getElementById('subtotal').innerText = subtotal.toFixed(2);
+        document.getElementById('total').innerText = (subtotal + taxa).toFixed(2);
+    }
+
+    function enviarWhatsApp() {
+        const sub = document.getElementById('subtotal').innerText;
+        const total = document.getElementById('total').innerText;
+        const entrega = document.getElementById('tipo-entrega').options[document.getElementById('tipo-entrega').selectedIndex].text;
+        const end = document.getElementById('endereco').value;
+        const pag = document.getElementById('pagamento').value;
+        const troco = document.getElementById('troco').value;
+       
+        let msg = `*Novo Pedido - Guará Açaí* 🫐🥤%0A%0A`;
+        carrinho.forEach(i => msg += `• ${i.nome} - R$ ${i.preco.toFixed(2)}%0A`);
+        msg += `%0A*💰 Subtotal:* R$ ${sub}%0A*🛵 Envio:* ${entrega}%0A*Total Final:* R$ ${total}%0A%0A`;
+        msg += (document.getElementById('tipo-entrega').value !== "0.00") ? `*📍 Endereço:* ${end}%0A` : "";
+        msg += `*💳 Pagamento:* ${pag}`;
+        if (pag === "Dinheiro" && troco) {
+            msg += ` %0A*💵 Troco p/:* ${troco}`;
+        }
+       
+        window.open(`https://wa.me/5512981442352?text=${msg}`);
+    }
+
+    init();
+</script>
+</body>
+</html>
+
+ 
